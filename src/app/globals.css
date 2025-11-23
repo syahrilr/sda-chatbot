@@ -138,3 +138,89 @@
 ::-webkit-scrollbar-thumb:hover {
   @apply bg-muted;
 }
+
+@layer utilities {
+  /* Smooth animations */
+  .animate-in {
+    animation-name: fadeIn;
+    animation-duration: 0.5s;
+    animation-fill-mode: both;
+  }
+
+  .fade-in-0 {
+    animation-name: fadeIn;
+    animation-duration: 0.5s;
+  }
+
+  .slide-in-from-bottom-4 {
+    animation-name: slideInFromBottom;
+    animation-duration: 0.5s;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes slideInFromBottom {
+    from {
+      opacity: 0;
+      transform: translateY(1rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  /* Active scale effect */
+  .active\:scale-95:active {
+    transform: scale(0.95);
+  }
+
+  .active\:scale-98:active {
+    transform: scale(0.98);
+  }
+
+  /* Smooth transitions for all elements */
+  * {
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 200ms;
+  }
+}
+
+/* Better scrollbar for messages */
+.overflow-y-auto {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--border)) transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar {
+  width: 8px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb {
+  background: hsl(var(--border));
+  border-radius: 4px;
+}
+
+.overflow-y-auto::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted));
+}
+
+/* Gradient text for special elements */
+.gradient-text {
+  background: linear-gradient(to right, hsl(var(--primary)), hsl(var(--chart-3)));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

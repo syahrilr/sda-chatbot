@@ -21,14 +21,14 @@ export const Avatar: React.FC<AvatarProps> = ({ type, size = 'md' }) => {
 
   if (type === 'bot') {
     return (
-      <div className={`${sizeClasses[size]} bg-primary rounded-md flex items-center justify-center shadow-sm shrink-0`}>
+      <div className={`${sizeClasses[size]} bg-linear-to-br from-primary to-primary/80 rounded-lg flex items-center justify-center shadow-sm shrink-0 ring-2 ring-primary/20`}>
         <Bot className={`${iconSizes[size]} text-primary-foreground`} />
       </div>
     );
   }
 
   return (
-    <div className={`${sizeClasses[size]} bg-muted rounded-md flex items-center justify-center shadow-sm shrink-0`}>
+    <div className={`${sizeClasses[size]} bg-linear-to-br from-muted to-muted/60 rounded-lg flex items-center justify-center shadow-sm shrink-0`}>
       <User className={`${iconSizes[size]} text-muted-foreground`} />
     </div>
   );

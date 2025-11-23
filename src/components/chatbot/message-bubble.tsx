@@ -3,100 +3,207 @@ import type { Message } from '@/lib/types/chat.types';
 import { Avatar } from './avatar';
 import { Copy, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { ChartRenderer } from './chart-renderer';
+import { Button } from '../ui/button';
 
 interface MessageBubbleProps {
   message: Message;
 }
 
 const FormattedBotMessage: React.FC<{ text: string }> = ({ text }) => {
-  const sections = text.split(/(?=\d+[️⃣\s]*[\*\*]*[A-Z])/);
+  // Deteksi Chart JSON
+  const chartRegex = /```json:chart\s*([\s\S]*?)```/g;
+  const chartMatches = Array.from(text.matchAll(chartRegex));
 
-  return (
-    <div className="space-y-3">
-      {sections.map((section, idx) => {
-        if (!section.trim()) return null;
+  if (chartMatches.length > 0) {
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
 
-        const lines = section.split('\n').filter(line => line.trim());
+    chartMatches.forEach((match, idx) => {
+      if (match.index! > lastIndex) {
+        const textBefore = text.substring(lastIndex, match.index);
+        if (textBefore.trim()) {
+          parts.push(
+            <div key={`text-${idx}`} className="mb-4">
+              <FormattedTextContent text={textBefore} />
+            </div>
+          );
+        }
+      }
 
-        return (
-          <div key={idx} className="space-y-2">
-            {lines.map((line, lineIdx) => {
-              if (line.match(/^\d+[️⃣\s]*\*\*.*\*\*/) || line.match(/^\d+[️⃣\s]*[A-Z]/)) {
-                return (
-                  <div key={lineIdx} className="mb-2">
-                    <div className="flex items-start gap-2 bg-primary/10 rounded-md px-3 py-2 border-l-3 border-primary">
-                      <span className="font-semibold text-primary text-xs sm:text-sm leading-relaxed">
-                        {line.replace(/\*\*/g, '')}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
+      parts.push(
+        <ChartRenderer key={`chart-${idx}`} configString={match[0]} />
+      );
 
-              if (line.includes('**')) {
-                const parts = line.split(/(\*\*.*?\*\*)/g);
-                return (
-                  <p key={lineIdx} className="text-xs sm:text-sm leading-relaxed text-foreground">
-                    {parts.map((part, partIdx) => {
-                      if (part.startsWith('**') && part.endsWith('**')) {
-                        return <strong key={partIdx} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
-                      }
-                      return <span key={partIdx}>{part}</span>;
-                    })}
-                  </p>
-                );
-              }
+      lastIndex = match.index! + match[0].length;
+    });
 
-              if (line.includes('|') && line.split('|').length > 2) {
-                return null;
-              }
-
-              if (line.trim()) {
-                return <p key={lineIdx} className="text-xs sm:text-sm leading-relaxed text-foreground">{line}</p>;
-              }
-              return null;
-            })}
-
-            {section.includes('|') && (
-              <div className="overflow-x-auto my-3 -mx-2 px-2">
-                <table className="min-w-full text-xs border-collapse bg-background rounded-md overflow-hidden border border-border">
-                  <thead>
-                    <tr className="bg-muted border-b border-border">
-                      {section.split('\n')
-                        .find(line => line.includes('|') && !line.includes('---'))
-                        ?.split('|')
-                        .filter(cell => cell.trim())
-                        .map((header, i) => (
-                          <th key={i} className="px-2 sm:px-3 py-1.5 sm:py-2 text-left font-semibold text-foreground text-xs">
-                            {header.trim()}
-                          </th>
-                        ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {section.split('\n')
-                      .filter(line => line.includes('|') && !line.includes('---'))
-                      .slice(1)
-                      .map((row, rowIdx) => (
-                        <tr key={rowIdx} className="border-b border-border hover:bg-muted/50 transition-colors duration-150">
-                          {row.split('|')
-                            .filter(cell => cell.trim())
-                            .map((cell, cellIdx) => (
-                              <td key={cellIdx} className="px-2 sm:px-3 py-1.5 sm:py-2 text-muted-foreground text-xs">
-                                {cell.trim()}
-                              </td>
-                            ))}
-                        </tr>
-                      ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+    if (lastIndex < text.length) {
+      const textAfter = text.substring(lastIndex);
+      if (textAfter.trim()) {
+        parts.push(
+          <div key="text-after" className="mt-4">
+            <FormattedTextContent text={textAfter} />
           </div>
         );
-      })}
-    </div>
-  );
+      }
+    }
+
+    return <div>{parts}</div>;
+  }
+
+  return <FormattedTextContent text={text} />;
+};
+
+const FormattedTextContent: React.FC<{ text: string }> = ({ text }) => {
+  const lines = text.split('\n');
+  const elements: React.ReactNode[] = [];
+  let currentSection: string[] = [];
+
+  lines.forEach((line, idx) => {
+    const trimmedLine = line.trim();
+
+    // Header dengan emoji (## 🔍, ## 📊, dll)
+    if (trimmedLine.match(/^##\s*[🔍📊💡🛠️⚠️]/)) {
+      if (currentSection.length > 0) {
+        elements.push(<div key={`section-${idx}`} className="mb-4">{renderSection(currentSection)}</div>);
+        currentSection = [];
+      }
+
+      const headerText = trimmedLine.replace(/^##\s*/, '');
+      let className = 'bg-muted/50 border-l-4 border-border';
+
+      if (headerText.includes('🔍')) {
+        className = 'bg-blue-50 dark:bg-blue-950/30 border-l-4 border-blue-500';
+      } else if (headerText.includes('📊')) {
+        className = 'bg-emerald-50 dark:bg-emerald-950/30 border-l-4 border-emerald-500';
+      } else if (headerText.includes('💡')) {
+        className = 'bg-purple-50 dark:bg-purple-950/30 border-l-4 border-purple-500';
+      } else if (headerText.includes('🛠️')) {
+        className = 'bg-orange-50 dark:bg-orange-950/30 border-l-4 border-orange-500';
+      } else if (headerText.includes('⚠️')) {
+        className = 'bg-destructive/10 border-l-4 border-destructive';
+      }
+
+      elements.push(
+        <div key={`header-${idx}`} className={`${className} px-4 py-2.5 my-4 rounded-r-lg`}>
+          <h3 className="text-base font-semibold text-foreground">{headerText}</h3>
+        </div>
+      );
+      return;
+    }
+
+    // Sub-header (###)
+    if (trimmedLine.match(/^###\s+/)) {
+      if (currentSection.length > 0) {
+        elements.push(<div key={`section-${idx}`} className="mb-3">{renderSection(currentSection)}</div>);
+        currentSection = [];
+      }
+
+      const subHeaderText = trimmedLine.replace(/^###\s+/, '');
+      elements.push(
+        <h4 key={`subheader-${idx}`} className="text-sm font-semibold text-foreground mt-4 mb-2 flex items-center">
+          <div className="w-1 h-4 bg-primary mr-2 rounded-full"></div>
+          {subHeaderText}
+        </h4>
+      );
+      return;
+    }
+
+    // Blockquote (>)
+    if (trimmedLine.startsWith('>')) {
+      if (currentSection.length > 0) {
+        elements.push(<div key={`section-${idx}`} className="mb-3">{renderSection(currentSection)}</div>);
+        currentSection = [];
+      }
+
+      const quoteText = trimmedLine.replace(/^>\s*/, '');
+      elements.push(
+        <div key={`quote-${idx}`} className="border-l-3 border-primary bg-primary/5 px-4 py-2.5 my-2 rounded-r">
+          <p className="text-sm text-muted-foreground leading-relaxed italic">{renderInlineFormatting(quoteText)}</p>
+        </div>
+      );
+      return;
+    }
+
+    // Separator (---)
+    if (trimmedLine === '---') {
+      if (currentSection.length > 0) {
+        elements.push(<div key={`section-${idx}`} className="mb-3">{renderSection(currentSection)}</div>);
+        currentSection = [];
+      }
+      elements.push(<div key={`sep-${idx}`} className="h-px bg-linear-to-r from-transparent via-border to-transparent my-6"></div>);
+      return;
+    }
+
+    // Akumulasi text biasa dan list items
+    if (trimmedLine) {
+      currentSection.push(line);
+    } else if (currentSection.length > 0) {
+      elements.push(<div key={`section-${idx}`} className="mb-3">{renderSection(currentSection)}</div>);
+      currentSection = [];
+    }
+  });
+
+  if (currentSection.length > 0) {
+    elements.push(<div key="final-section" className="mb-3">{renderSection(currentSection)}</div>);
+  }
+
+  return <div className="space-y-1">{elements}</div>;
+};
+
+const renderSection = (lines: string[]) => {
+  const elements: React.ReactNode[] = [];
+
+  lines.forEach((line, idx) => {
+    const trimmedLine = line.trim();
+
+    // List item
+    if (trimmedLine.match(/^(\d+\.|[-*]|[✅⚠️🔧📞🚨📈⏱️📝🆘🚑🚧🔄⚡])\s+/)) {
+      const match = trimmedLine.match(/^(\d+\.|[-*]|[✅⚠️🔧📞🚨📈⏱️📝🆘🚑🚧🔄⚡])\s+(.+)/);
+      if (match) {
+        const marker = match[1];
+        const content = match[2];
+
+        elements.push(
+          <div key={idx} className="flex items-start gap-2.5 mb-2 group">
+            <span className="text-sm text-muted-foreground shrink-0 mt-0.5 group-hover:text-foreground transition-colors">
+              {marker}
+            </span>
+            <span className="text-sm text-foreground leading-relaxed flex-1">
+              {renderInlineFormatting(content)}
+            </span>
+          </div>
+        );
+      }
+      return;
+    }
+
+    // Text biasa
+    if (trimmedLine) {
+      elements.push(
+        <p key={idx} className="text-sm text-foreground leading-relaxed mb-2">
+          {renderInlineFormatting(trimmedLine)}
+        </p>
+      );
+    }
+  });
+
+  return <>{elements}</>;
+};
+
+const renderInlineFormatting = (text: string) => {
+  const parts = text.split(/(\*\*.*?\*\*|`.*?`)/g);
+
+  return parts.map((part, idx) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={idx} className="font-semibold text-foreground">{part.slice(2, -2)}</strong>;
+    }
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return <code key={idx} className="bg-muted px-1.5 py-0.5 rounded text-xs font-mono">{part.slice(1, -1)}</code>;
+    }
+    return <span key={idx}>{part}</span>;
+  });
 };
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
@@ -107,45 +214,48 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
     try {
       await navigator.clipboard.writeText(message.text);
       setCopied(true);
-      toast('Pesan berhasil disalin', { duration: 2000 });
+      toast.success('Pesan berhasil disalin');
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      toast('Gagal menyalin pesan', { duration: 2000 });
+      toast.error('Gagal menyalin pesan');
     }
   };
 
   return (
-    <div className={`flex gap-2 sm:gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} animate-in fade-in slide-in-from-bottom-2 duration-300`}>
+    <div className={`flex gap-3 ${isUser ? 'flex-row-reverse' : 'flex-row'} mb-6 animate-in fade-in-0 slide-in-from-bottom-4 duration-500`}>
       <Avatar type={message.sender} size="sm" />
 
-      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-xs sm:max-w-sm md:max-w-7xl group`}>
+      <div className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} max-w-5xl flex-1 group`}>
         <div
-          className={`rounded-lg px-3 sm:px-4 py-2 sm:py-3 transition-all duration-200 relative shadow-sm text-sm sm:text-base ${
+          className={`rounded-lg px-4 py-3 transition-all duration-200 relative w-full ${
             isUser
-              ? 'bg-primary text-primary-foreground'
-              : 'bg-secondary text-foreground border border-border/30'
+              ? 'bg-primary text-primary-foreground ml-12'
+              : 'bg-card text-card-foreground border border-border hover:border-primary/20 hover:shadow-sm mr-12'
           }`}
         >
           {isUser ? (
-            <p className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
+            <p className="text-sm leading-relaxed whitespace-pre-wrap">{message.text}</p>
           ) : (
             <FormattedBotMessage text={message.text} />
           )}
 
-          <button
-            onClick={handleCopy}
-            className="absolute -bottom-8 sm:-bottom-9 right-0 opacity-0 group-hover:opacity-100 transition-opacity duration-200 p-1.5 rounded-md bg-background hover:bg-secondary text-muted-foreground hover:text-foreground border border-border/30"
-            title="Salin pesan"
-            aria-label="Copy message"
-          >
-            {copied ? (
-              <Check className="w-4 h-4 text-green-600" />
-            ) : (
-              <Copy className="w-4 h-4" />
-            )}
-          </button>
+          {!isUser && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={handleCopy}
+              className="absolute -bottom-9 right-2 opacity-0 group-hover:opacity-100 transition-all duration-200 h-8 w-8"
+              title="Salin pesan"
+            >
+              {copied ? (
+                <Check className="w-3.5 h-3.5 text-green-600 dark:text-green-400" />
+              ) : (
+                <Copy className="w-3.5 h-3.5" />
+              )}
+            </Button>
+          )}
         </div>
-        <span className="text-xs text-muted-foreground mt-2 px-2">
+        <span className="text-xs text-muted-foreground mt-1.5 px-1">
           {message.timestamp.toLocaleTimeString('id-ID', {
             hour: '2-digit',
             minute: '2-digit'
