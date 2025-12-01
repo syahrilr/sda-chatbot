@@ -29,7 +29,7 @@ export default function ChatbotPage() {
 
   return (
     <div className="flex h-screen bg-background">
-      <Sidebar
+      {/* <Sidebar
         chats={chats}
         activeChat={activeChat}
         onSelectChat={handleSelectChat}
@@ -39,7 +39,7 @@ export default function ChatbotPage() {
         onClose={() => setIsSidebarOpen(false)}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-      />
+      /> */}
 
       <div className="flex-1 flex flex-col h-screen overflow-hidden">
         <Header onToggleSidebar={() => setIsSidebarOpen(true)} />
